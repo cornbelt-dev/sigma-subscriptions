@@ -72,7 +72,7 @@ Set max number of subscriptions
     const services = await manager.getServices(serviceWalletAddress);
   ```
   
-#### Get Services
+#### Get Subscriptions
   ```sh
     const subscriptions = await manager.getSubscriptions(serviceTokenId);
   ```
