@@ -1,0 +1,38 @@
+﻿{
+    // Considering adding this to the Service Contract to ensure dev payments
+
+    // check that dev fee is paid
+    val devOutput = if (renew) { OUTPUTS(2) } else { OUTPUTS(1) }
+    val devConfig = CONTEXT.dataInputs(1)
+    val feePaid = {
+        val validDevConfig = devConfig.tokens(0)._1 == _devConfigNFT
+
+        if (validDevConfig) {
+            val devPubKey = devConfig.R4[SigmaProp].get 
+            val feePercent = devConfig.R5[Long].get // 1000L -> 1%
+            val minFee = devConfig.R6[Long].get
+            val fixedFee = devConfig.R7[Long]
+
+            // Fixed fee is set
+            if (fixedFee.isDefined) {                    
+                allOf(Coll(
+                    devOutput.propositionBytes == devPubKey.propBytes,
+                    devOutput.value == fixedFee.get
+                ))
+            } else {
+                // Calculate fee
+                val feeDenom = 100000L
+                val devFee = ((feePercent.toBigInt * SELF.value.toBigInt) / feeDenom.toBigInt)            
+                val fee = if (devFee < minFee.toBigInt) { minFee.toBigInt } else { devFee }
+                allOf(Coll(
+                    devOutput.propositionBytes == devPubKey.propBytes,
+                    devOutput.value.toBigInt == fee
+                ))                
+            }
+        } else {
+            false
+        }
+    }
+
+    sigmaProp(feePaid)
+}

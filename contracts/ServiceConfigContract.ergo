@@ -1,0 +1,25 @@
+﻿{
+    // Service Config Contract
+
+    // This box will be created when a new service config is setup and will contain the following
+    //      - Assets: The NFT service token that will be used to validate use in the Subscribe and Service Contracts
+
+    //      Register                                Expected Data Type
+    //      - R4: Services P2PK Address             - SigmaProp
+    //      - R5: Hash of Service Contract          - Coll[Byte]
+    //      - R6: Service Fee                       - Long (Nano Ergs)
+    //      - R7: Service Length                    - Long (Length in milliseconds)
+    //      - R8: Service Name                      - Coll[Byte]
+    //      - R9: Service Descriptions              - Coll[Byte]
+
+    // Ensure only service PK can modify
+    val servicePk = SELF.R4[SigmaProp].get
+
+    // Ensure config box is preserved and NFT remains in it
+    val configPerserved = {
+        OUTPUTS(0).propositionBytes == SELF.propositionBytes &&
+        OUTPUTS(0).tokens(0)._1 == SELF.tokens(0)._1
+    }
+
+    sigmaProp(servicePk && configPerserved)
+}

@@ -1,0 +1,67 @@
+﻿{
+    // Subscribe Contract
+
+    // This box will be created when a new service is setup and will contain the following
+    //      - Assets: 
+    //          - The service tokens that will be sent to the Service Contract and used to track all active Subscriptions                
+    //          - Service will have the option to set a limit on the number of Subscriptions by setting mint amout
+    //      - R4: NFT of the service config box
+
+    // To spend this box a Subscriber must send this box, the service fee, and use the service configuation as a data input and will result in the following
+    //      - This box being recreated with 1 less Service token
+    //      - A new Service Contract box created
+    //      - 2 new Subscription tokens minted with 1 sent to the Service Contract and 1 to the Subscriber
+
+    // The following conditons must be met
+    //      - The config box must contain the valid NFT for this subscription
+    //      - The 1st output must recreate this box and it must contain 1 less service token than the current box
+    //      - The 2nd output is sent to the Subscriber and it contain the following
+    //            1 Subscriber Token
+    //            R4: Servcie Name - (EIP-004 Token verbose name)
+    //            R5: Service Description - (EIP-004 Token description)
+    //      - The 3rd output is the Service Contract box and it must contain the following
+    //            Service Fee
+    //            1 Service Token
+    //            1 Subscriber Token
+    //            R4: NFT of the service config box
+    //            R5: Service Start Date
+    //            R6: Service End Date
+
+    // Validate service config
+    val serviceConfig = CONTEXT.dataInputs(0)
+    val serviceConfigNFT = SELF.R7[Coll[Byte]].get
+    val validConfig = serviceConfig.tokens(0)._1 == serviceConfigNFT        // Valid Service Config
+
+    val serviceContractHash = serviceConfig.R5[Coll[Byte]].get
+    val serviceFee = serviceConfig.R6[Long].get
+    val serviceLength = serviceConfig.R7[Long].get 
+    val serviceName = serviceConfig.R8[Coll[Byte]].get       
+    val serviceDesc = serviceConfig.R9[Coll[Byte]].get              
+
+    val validSubscribe = {
+        OUTPUTS(0).propositionBytes == SELF.propositionBytes &&             // Preserve Subscribe box
+        OUTPUTS(0).tokens(0)._2 == (SELF.tokens(0)._2 - 1) &&               // Only 1 token is sent
+        OUTPUTS(0).R4[Coll[Byte]].get == SELF.R4[Coll[Byte]].get &&         // Token Name is preserved
+        OUTPUTS(0).R5[Coll[Byte]].get == SELF.R5[Coll[Byte]].get &&         // Desc is preserved
+        OUTPUTS(0).R6[Coll[Byte]].get == SELF.R6[Coll[Byte]].get &&         // Decimals is perserved
+        OUTPUTS(0).R7[Coll[Byte]].get == serviceConfigNFT                   // Service Config NFT is preserved
+    }
+        
+    val validSubscriber = {
+        OUTPUTS(1).tokens(0)._1 == SELF.id &&                               // Send minted token to Subscriber
+        OUTPUTS(1).tokens(0)._2 == 1L                                       // Only 1 token is sent
+    }
+
+    val validServiceContract = {
+        blake2b256(OUTPUTS(2).propositionBytes) == serviceContractHash &&   // Sending to the valid Service Contract
+        OUTPUTS(2).value == serviceFee &&                                   // Correct amount of fee is sent
+        OUTPUTS(2).tokens(0)._1 == SELF.tokens(0)._1 &&                     // Send Service token to Service Contract
+        OUTPUTS(2).tokens(0)._2 == 1L &&                                    // Only 1 token is sent
+        OUTPUTS(2).tokens(1)._1 == SELF.id &&                               // Send minted token to Service Contract
+        OUTPUTS(2).tokens(1)._2 == 1L &&                                    // Only 1 token is sent
+        OUTPUTS(2).R4[Coll[Byte]].get == serviceConfigNFT &&                // Service Config NFT
+        OUTPUTS(2).R6[Long].get - OUTPUTS(2).R5[Long].get <= serviceLength  // Service start and end dates do not exceed Service length
+    }  
+        
+    sigmaProp(validConfig && validSubscribe && validSubscriber && validServiceContract)
+}

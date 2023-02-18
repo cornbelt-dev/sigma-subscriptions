@@ -1,0 +1,46 @@
+{
+  "name": "sigma-subscriptions",
+  "version": "1.0.0-alpha",
+  "description": "Toolset for managing subscriptions on Ergo",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "typings": "dist/esm/types/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cornbelt-dev/sigma-subscriptions.git"
+  },
+  "keywords": [
+    "ergo",
+    "blockchain",
+    "subscriptions"
+  ],
+  "author": "cornbelt-dev",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/cornbelt-dev/sigma-subscriptions/issues"
+  },
+  "homepage": "https://github.com/cornbelt-dev/sigma-subscriptions#readme",
+  "scripts": {
+    "clean": "del /F /Q dist",
+    "build": "npm run clean && npm run build:esm && npm run build:cjs",
+    "build:esm": "tsc -p tsconfig.esm.json",
+    "build:cjs": "tsc -p tsconfig.json",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@fleet-sdk/core": "^0.1.0-alpha.19",
+    "@fleet-sdk/common": "^0.1.0-alpha.19",
+    "@nautilus-js/eip12-types": "^0.1.9"
+  },
+  "devDependencies": {
+    "@types/node": "^16.18.12",
+    "buffer": "^6.0.3",
+    "typescript": "^4.9.5"
+  },
+  "files": [
+    "src",
+    "dist",
+    "LICENSE",
+    "README.md"
+  ]
+}

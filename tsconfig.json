@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "moduleResolution": "Node",
+    "module": "CommonJS",
+    "declaration": true,
+    "inlineSourceMap": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "strict": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "traceResolution": false,
+    "listEmittedFiles": false,
+    "listFiles": false,
+    "pretty": true,
+    "lib": [ "ESNext", "DOM" ],
+    "typeRoots": [ "node_modules/@types" ],
+    "rootDir": "./src",
+    "outDir": "dist/cjs",
+    "declarationDir": "dist/cjs/types"
+  },
+  "include": [ "src/**/*.ts" ],
+  "exclude": [ "contracts", "**/node_modules", "**/__tests__/*" ]
+}

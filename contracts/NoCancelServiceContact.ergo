@@ -1,0 +1,46 @@
+﻿{   
+    // Service Contract without a cancel feature
+
+    // Validate service config
+    val serviceConfigNFT = SELF.R4[Coll[Byte]].get
+    val serviceConfig = CONTEXT.dataInputs(0)
+    val validServiceConfig = serviceConfig.tokens(0)._1 == serviceConfigNFT
+        
+    val totalERG = SELF.value
+    val serviceToken = SELF.tokens(0)
+    val subscriptionToken = SELF.tokens(1)
+    val serviceStart = SELF.R5[Long].get   
+    val serviceEnd = SELF.R6[Long].get   
+
+    // Service Config Settings
+    val servicePubKey = serviceConfig.R4[SigmaProp].get
+    val serviceFee = serviceConfig.R6[Long].get
+    val serviceLength = serviceConfig.R7[Long].get
+         
+    // check if the subscription token is sent
+    val validSubscriptionToken = INPUTS.exists{(bx: Box) => bx.propositionBytes != SELF.propositionBytes && bx.tokens.exists{(tkn: (Coll[Byte], Long)) => tkn == subscriptionToken }}
+
+    // subscriber is renewing an active or expired service
+    val renew = {
+        CONTEXT.preHeader.timestamp > serviceStart &&                   // Ensure service has started
+        CONTEXT.preHeader.timestamp < serviceEnd &&                     // Ensure service has not ended
+        OUTPUTS(0).propositionBytes == SELF.propositionBytes &&         // Preserve Service Contract
+        OUTPUTS(0).value == serviceFee &&                               // Correct amount of fee is sent to a new Service Contract
+        OUTPUTS(0).tokens == SELF.tokens &&                             // Keep Service and Subscriber tokens in Service Contract
+        OUTPUTS(0).R4[Coll[Byte]].get == serviceConfigNFT &&            // Service Config NFT
+        OUTPUTS(0).R5[Long].get == serviceEnd &&                        // Service Start Date set to exsisting End Date
+        OUTPUTS(0).R6[Long].get == serviceEnd + serviceLength &&        // Set new Service End Date
+        OUTPUTS(1).propositionBytes == servicePubKey.propBytes &&       // Fee goes to service address
+        OUTPUTS(1).value == totalERG                                    // All the fee is sent
+    }
+        
+    // if service has ended service can collect
+    val collect = {
+        CONTEXT.preHeader.timestamp > serviceEnd &&                     // Service has ended 
+        OUTPUTS(0).tokens(0)._1 == serviceToken._1 &&                   // Service token is sent back to service
+        OUTPUTS(0).propositionBytes == servicePubKey.propBytes &&       // Fee goes to service address
+        OUTPUTS(0).value == totalERG                                    // Fee is all sent to service
+    }
+            
+    sigmaProp(validServiceConfig && ((validSubscriptionToken && renew) || collect))
+}

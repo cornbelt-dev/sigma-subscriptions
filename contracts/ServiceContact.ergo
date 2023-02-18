@@ -1,0 +1,95 @@
+﻿{   
+    // Service Contract
+
+    // This box will be created when a subsctiption is executed and will contain the following
+    //      - Assets: 
+    //          - 1 Service token from the Subscribe contract box
+    //          - 1 Subscription token
+    //      - R4: NFT of the service config box
+    //      - R5: Start date of service (unix timetamp in milliseconds)
+    //      - R6: End date of service (unix timetamp in milliseconds)
+    
+    // There are 3 ways to spend this this box, renew, cancel, and collect
+
+    // 1. Renew
+    //      To renew this service contract the subscriber must send the correct fee along with their unique Subscription Token 
+    //      This box is then recreated and the Service Start/End dates are adjusted
+
+    // 2. Cancel
+    //      To cancel this subscription the subscriber must send thier unique Subscription Token
+    //      If the service start date has not been reached then a full refund is issued
+    //      If the service is active then a partal refund is issued and the remaning fee is sent to the service
+
+    // 3. Collect
+    //      The service can force collect the fee in this box if the service end has passed
+
+    // Validate service config
+    val serviceConfigNFT = SELF.R4[Coll[Byte]].get
+    val serviceConfig = CONTEXT.dataInputs(0)
+    val validServiceConfig = serviceConfig.tokens(0)._1 == serviceConfigNFT
+        
+    val totalERG = SELF.value
+    val serviceToken = SELF.tokens(0)
+    val subscriptionToken = SELF.tokens(1)
+    val serviceStart = SELF.R5[Long].get   
+    val serviceEnd = SELF.R6[Long].get   
+
+    // Service Config Settings
+    val servicePubKey = serviceConfig.R4[SigmaProp].get
+    val serviceFee = serviceConfig.R6[Long].get
+    val serviceLength = serviceConfig.R7[Long].get
+         
+    // check if the subscription token is sent
+    val validSubscriptionToken = INPUTS.exists{(bx: Box) => bx.propositionBytes != SELF.propositionBytes && bx.tokens.exists{(tkn: (Coll[Byte], Long)) => tkn == subscriptionToken }}
+
+    // subscriber is renewing an active or expired service
+    val renew = {
+        CONTEXT.preHeader.timestamp > serviceStart &&                   // Ensure service has started
+        CONTEXT.preHeader.timestamp < serviceEnd &&                     // Ensure service has not ended
+        OUTPUTS(0).propositionBytes == SELF.propositionBytes &&         // Preserve Service Contract
+        OUTPUTS(0).value == serviceFee &&                               // Correct amount of fee is sent to a new Service Contract
+        OUTPUTS(0).tokens == SELF.tokens &&                             // Keep Service and Subscriber tokens in Service Contract
+        OUTPUTS(0).R4[Coll[Byte]].get == serviceConfigNFT &&            // Service Config NFT
+        OUTPUTS(0).R5[Long].get == serviceEnd &&                        // Service Start Date set to exsisting End Date
+        OUTPUTS(0).R6[Long].get == serviceEnd + serviceLength &&        // Set new Service End Date
+        OUTPUTS(1).propositionBytes == servicePubKey.propBytes &&       // Fee goes to service address
+        OUTPUTS(1).value == totalERG                                    // All the fee is sent
+    }
+        
+    // subscriber wants to cancel service
+    val currentTime = CONTEXT.preHeader.timestamp
+    val cancel = {        
+        if (currentTime < serviceStart) {                                   // Service has not started so allow full refund
+            true
+        } else if (currentTime > serviceEnd) {                              // Service has ended so cancel not allowed
+            false
+        }
+        else {                                                              // Service has started and not ended so validate cancel
+            // calcuate the refund and fee
+            val roundTo = 1000000L
+            val nextHour = currentTime - (currentTime % 3600000L) + 3600000L
+            val refundPercent = (((serviceEnd - nextHour) * 100L) / (serviceEnd - serviceStart)) 
+            val refundExact = (totalERG * refundPercent) / 100L
+            val refund = refundExact - (refundExact % roundTo)
+
+            OUTPUTS(0).propositionBytes == servicePubKey.propBytes &&   // Service token goes back to service address
+            OUTPUTS(0).value == totalERG - refund &&                    // Correct fee is sent to service
+            OUTPUTS(0).tokens(0)._1 == serviceToken._1 &&               // Service token is sent back to service
+            OUTPUTS(0).tokens(0)._2 == 1L &&                             
+            OUTPUTS(0).tokens(1)._1 == subscriptionToken._1 &&          // Both Subscription token is sent back to service
+            OUTPUTS(0).tokens(1)._2 == 2L                                
+        }
+    }
+
+    // if service has ended service can collect
+    val collect = {
+        CONTEXT.preHeader.timestamp > serviceEnd &&                     // Service has ended 
+        OUTPUTS(0).tokens(0)._1 == serviceToken._1 &&                   // Service token is sent back to service
+        OUTPUTS(0).propositionBytes == servicePubKey.propBytes &&       // Fee goes to service address
+        OUTPUTS(0).value == totalERG                                    // Fee is all sent to service
+    }
+            
+    sigmaProp(validServiceConfig && ((validSubscriptionToken && (cancel || renew)) || collect))
+}
+            
+// TODO: Consider burning the service tokens since if they are ever sent to the user they could create fake subscriptions
