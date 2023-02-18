@@ -169,7 +169,7 @@ Distributed under the MIT License. See `LICENSE` file for more information.
 ## Contact
 Discord: @cornbelt [#sigma-subscriptions][discord]
 
-Open source is the way. Fork it, break it, improve it!
+Open source is the way.
 
 <p align="right">(<a href="#top">Back to top</a>)</p>
 

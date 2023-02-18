@@ -6,7 +6,6 @@ import { CreateServiceConfig, EditServiceConfig, CreateService, CreateSubscripti
 import { SigmaSubscriptionsAuthResponse, Subscription, Service, ServiceConfig } from "./types";
 
 export class SigmaSubscriptions {
-
     
     NetworkType: Network;
     API_URL: string;
