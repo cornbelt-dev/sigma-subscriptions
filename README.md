@@ -66,7 +66,17 @@ Set max number of subscriptions
     const serviceTokenId = "0c5b3144f8db88ce0fd78c0a7fd5f5681f4bc26382c6c4c0a964d99c14fb78c3";
     const auth: SigmaSubscriptionsAuthResponse = await manager.auth(ergo, serviceTokenId);
   ```
-
+  
+#### Get Services
+  ```sh
+    const services = await manager.getServices(serviceWalletAddress);
+  ```
+  
+#### Get Services
+  ```sh
+    const subscriptions = await manager.getSubscriptions(serviceTokenId);
+  ```
+ 
 <p align="right">(<a href="#top">Back to top</a>)</p>
 
 ## ErgoScript Contracts [View All](/contracts)
