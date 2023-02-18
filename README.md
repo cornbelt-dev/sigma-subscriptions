@@ -2,6 +2,8 @@
 
 Toolset for managing subscriptions on Ergo built with [Fleet SDK][fleet]
 
+Built during [ErgoHack VI][ergohack]
+
 ### Installation
   ```sh
   npm install sigma-subscriptions
@@ -184,4 +186,5 @@ Open source is the way.
 <p align="right">(<a href="#top">Back to top</a>)</p>
 
 [fleet]: https://fleet-sdk.github.io/docs/
+[ergohack]: https://ergohack.io/
 [discord]: https://discord.gg/ergo-platform-668903786361651200
