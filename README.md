@@ -2,6 +2,8 @@
 
 Toolset for managing subscriptions on Ergo built with [Fleet SDK][fleet]
 
+Built during [ErgoHack VI][ergohack]
+
 ### Installation
   ```sh
   npm install sigma-subscriptions
@@ -66,7 +68,17 @@ Set max number of subscriptions
     const serviceTokenId = "0c5b3144f8db88ce0fd78c0a7fd5f5681f4bc26382c6c4c0a964d99c14fb78c3";
     const auth: SigmaSubscriptionsAuthResponse = await manager.auth(ergo, serviceTokenId);
   ```
-
+  
+#### Get Services
+  ```sh
+    const services = await manager.getServices(serviceWalletAddress);
+  ```
+  
+#### Get Subscriptions
+  ```sh
+    const subscriptions = await manager.getSubscriptions(serviceTokenId);
+  ```
+ 
 <p align="right">(<a href="#top">Back to top</a>)</p>
 
 ## ErgoScript Contracts [View All](/contracts)
@@ -174,4 +186,5 @@ Open source is the way.
 <p align="right">(<a href="#top">Back to top</a>)</p>
 
 [fleet]: https://fleet-sdk.github.io/docs/
+[ergohack]: https://ergohack.io/
 [discord]: https://discord.gg/ergo-platform-668903786361651200
