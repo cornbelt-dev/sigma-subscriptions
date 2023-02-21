@@ -1,6 +1,6 @@
 {
   "name": "sigma-subscriptions",
-  "version": "1.1.0",
+  "version": "0.2.0-0",
   "description": "Toolset for managing subscriptions on Ergo",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -27,7 +27,8 @@
     "build:cjs": "tsc -p tsconfig.json",
     "prepack": "npm run build",
     "watch": "npm-watch",
-    "pub": "npm version patch --force && npm publish"
+    "pubMinor": "npm minor patch --force && npm publish",
+    "pubMajor": "npm major patch --force && npm publish"
   },
   "watch": {
     "build": "{src}/*.ts"
