@@ -1,6 +1,6 @@
 {
   "name": "sigma-subscriptions",
-  "version": "0.2.0-0",
+  "version": "0.1.1-0",
   "description": "Toolset for managing subscriptions on Ergo",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
