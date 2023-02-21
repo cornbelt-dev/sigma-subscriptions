@@ -2,6 +2,7 @@
 import { Contract, GetContractAddress } from "./contracts";
 import * as CONSTANTS from "./constants";
 import * as UTIL from "./util";
+import { debug } from "console";
 
 // Service Config
 export async function getServiceConfig(API_URL: string, serviceNFT: string): Promise<Box<Amount> | undefined> {
@@ -16,13 +17,14 @@ export async function getServiceConfig(API_URL: string, serviceNFT: string): Pro
 export async function getServiceConfigsByAddress(networkType: Network, API_URL: string, serviceAddress: string): Promise<Box<Amount>[]> {
     
     const serviceConfigAddress = ErgoAddress.fromBase58(GetContractAddress(Contract.CONFIG, networkType));
-
-    const serviceErgoTree: string | undefined = UTIL.getErgoTree(ErgoAddress.fromBase58(serviceAddress));
+    let configBoxes: Box<Amount>[] = [];
     const boxes = await fetch(API_URL + 'boxes/unspent/byAddress/' + serviceConfigAddress).then(resp => resp.json());
-    boxes.forEach((b: Box<Amount>) =>
-        b.additionalRegisters = UTIL.parseAdditionalRegisters(b.additionalRegisters)
-    );
-    const configBoxes: Box<Amount>[] = boxes.items.filter((b: Box<Amount>) => b.additionalRegisters.R7 == serviceErgoTree);
+    if (boxes) {
+        boxes.items.forEach((b: Box<Amount>) =>
+            b.additionalRegisters = UTIL.parseAdditionalRegisters(b.additionalRegisters)
+        );
+        configBoxes = boxes.items.filter((b: Box<Amount>) => ErgoAddress.fromPublicKey(b.additionalRegisters.R4!.substring(4), networkType).toString() == serviceAddress);
+    }
     return configBoxes;
 }
 
@@ -41,13 +43,16 @@ export async function getSubscribeBoxes(networkType: Network, API_URL: string, s
 
 export async function getSubscribeBoxesByServiceConfig(networkType: Network, API_URL: string, serviceConfigNFT: string): Promise<Box<Amount>[]> {
     
+    let subscribeBoxes: Box<Amount>[] = [];
     const subscribeAddress = ErgoAddress.fromBase58(GetContractAddress(Contract.SUBSCRIBE, networkType));
 
     const boxes = await fetch(API_URL + 'boxes/unspent/byAddress/' + subscribeAddress).then(resp => resp.json());
-    boxes.forEach((b: Box<Amount>) =>
-        b.additionalRegisters = UTIL.parseAdditionalRegisters(b.additionalRegisters)
-    );
-    const subscribeBoxes: Box<Amount>[] = boxes.items.filter((b: Box<Amount>) => b.additionalRegisters.R7 == serviceConfigNFT);
+    if (boxes) {
+        boxes.items.forEach((b: Box<Amount>) =>
+            b.additionalRegisters = UTIL.parseAdditionalRegisters(b.additionalRegisters)
+        );
+        subscribeBoxes = boxes.items.filter((b: Box<Amount>) => b.additionalRegisters.R7?.substring(4) == serviceConfigNFT);
+    }
     return subscribeBoxes;
 }
 
@@ -66,10 +71,10 @@ export async function getSubscribeBox(networkType: Network, API_URL: string, ser
 // Subscriptions
 export async function getSubsciptionBoxes(networkType: Network, API_URL: string, serviceTokenId: string): Promise<Box<Amount>[] | []> {
 
-    const subscribeAddress = GetContractAddress(Contract.SUBSCRIBE, networkType);
+    const subscribeAddressErgoTree = ErgoAddress.fromBase58(GetContractAddress(Contract.SUBSCRIBE, networkType)).ergoTree;
 
     const boxes = await fetch(API_URL + 'boxes/unspent/byTokenId/' + serviceTokenId).then(resp => resp.json());
-    const subsciptionBoxes: Box<Amount>[] = boxes.items.filter((b: Box<Amount>) => b.ergoTree != subscribeAddress);
+    const subsciptionBoxes: Box<Amount>[] = boxes.items.filter((b: Box<Amount>) => ErgoAddress.fromErgoTree(b.ergoTree).type != AddressType.P2PK && b.ergoTree != subscribeAddressErgoTree);
     subsciptionBoxes.forEach((b: Box<Amount>) => 
         b.additionalRegisters = UTIL.parseAdditionalRegisters(b.additionalRegisters)
     );
@@ -91,6 +96,16 @@ export async function getSubsciptionBoxByBoxId(API_URL: string, boxId: string): 
         subscriptionBox.additionalRegisters = UTIL.parseAdditionalRegisters(subscriptionBox.additionalRegisters);
     }
     return subscriptionBox;
+}
+
+export async function getWalletAddressBySubsciptionTokenId(networkType: Network, API_URL: string, subscriptionTokenId: string): Promise<string | undefined> {
+    const boxes = await fetch(API_URL + 'boxes/unspent/byTokenId/' + subscriptionTokenId).then(resp => resp.json());
+    let subscriptionBox: Box<Amount> = boxes.items.find((b: Box<Amount>) => ErgoAddress.fromErgoTree(b.ergoTree).type == AddressType.P2PK);   
+    if (subscriptionBox) {
+        subscriptionBox.additionalRegisters = UTIL.parseAdditionalRegisters(subscriptionBox.additionalRegisters);
+        return ErgoAddress.fromErgoTree(subscriptionBox.ergoTree, networkType).toString();
+    }  
+    return undefined;
 }
 
 // Dev

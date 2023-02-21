@@ -45,7 +45,6 @@
     // subscriber is renewing an active or expired service
     val renew = {
         CONTEXT.preHeader.timestamp > serviceStart &&                   // Ensure service has started
-        CONTEXT.preHeader.timestamp < serviceEnd &&                     // Ensure service has not ended
         OUTPUTS(0).propositionBytes == SELF.propositionBytes &&         // Preserve Service Contract
         OUTPUTS(0).value == serviceFee &&                               // Correct amount of fee is sent to a new Service Contract
         OUTPUTS(0).tokens == SELF.tokens &&                             // Keep Service and Subscriber tokens in Service Contract

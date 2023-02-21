@@ -25,12 +25,17 @@
     "build": "npm run clean && npm run build:esm && npm run build:cjs",
     "build:esm": "tsc -p tsconfig.esm.json",
     "build:cjs": "tsc -p tsconfig.json",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "watch": "npm-watch"
+  },
+  "watch": {
+    "build": "{src}/*.ts"
   },
   "dependencies": {
-    "@fleet-sdk/core": "^0.1.0-alpha.19",
     "@fleet-sdk/common": "^0.1.0-alpha.19",
-    "@nautilus-js/eip12-types": "^0.1.9"
+    "@fleet-sdk/core": "^0.1.0-alpha.19",
+    "@nautilus-js/eip12-types": "^0.1.9",
+    "npm-watch": "^0.11.0"
   },
   "devDependencies": {
     "@types/node": "^16.18.12",

@@ -20,48 +20,40 @@ import { stringToBytes } from "@scure/base";
 import { blake2b } from "@noble/hashes/blake2b";
 import { hexToBytes } from "@noble/hashes/utils";
 import { Contract, GetContractAddress } from "./contracts";
+import { ServiceConfig } from "./types";
 const BLAKE_256_HASH_LENGTH = 32;
 
-export function CreateServiceConfig(networkType: Network,
-    serviceAddress: ErgoAddress,
-    name: string,
-    description: string,
-    serviceFee: number | string | bigint,
-    serviceLength: number | string | bigint): FleetPlugin {
+export function CreateServiceConfig(networkType: Network, config: ServiceConfig): FleetPlugin {
 
+    const serviceAddress = ErgoAddress.fromBase58(config.address);
     const serviceConfigAddress = ErgoAddress.fromBase58(GetContractAddress(Contract.CONFIG, networkType));
     const serviceContractAddress = ErgoAddress.fromBase58(GetContractAddress(Contract.SERVICE, networkType));
-    const serviceContractHash = blake2b(serviceContractAddress.ergoTree);
+    const serviceContractHash = blake2b(hexToBytes(serviceContractAddress.ergoTree), { dkLen: BLAKE_256_HASH_LENGTH });
 
     return ({ addOutputs }) => {
         addOutputs([
             new OutputBuilder(SAFE_MIN_BOX_VALUE, serviceConfigAddress)
                 .mintToken({
                     amount: "1",
-                    name: name + " Config",
+                    name: config.name + " Config",
                     decimals: 0,
-                    description: description
+                    description: config.description
                 })
                 .setAdditionalRegisters({
                     R4: SConstant(SSigmaProp(SGroupElement(first(serviceAddress.getPublicKeys())))),
                     R5: SConstant(SColl(SByte, serviceContractHash)),             
-                    R6: SConstant(SLong(serviceFee)),
-                    R7: SConstant(SLong(serviceLength)),
-                    R8: SConstant(SColl(SByte, stringToBytes("utf8", name))),
-                    R9: SConstant(SColl(SByte, stringToBytes("utf8", description)))
+                    R6: SConstant(SLong(config.fee)),
+                    R7: SConstant(SLong(config.length)),
+                    R8: SConstant(SColl(SByte, stringToBytes("utf8", config.name))),
+                    R9: SConstant(SColl(SByte, stringToBytes("utf8", config.description)))
                 })
         ]);
     }
 }
 
-export function EditServiceConfig(networkType: Network,
-    serviceConfigBox: Box<Amount>,
-    serviceAddress: ErgoAddress,
-    name: string,
-    description: string,
-    serviceFee: number | string | bigint,
-    serviceLength: number | string | bigint): FleetPlugin {
+export function EditServiceConfig(networkType: Network, config: ServiceConfig, serviceConfigBox: Box<Amount>): FleetPlugin {
 
+    const serviceAddress = ErgoAddress.fromBase58(config.address);
     const serviceConfig = ErgoAddress.fromBase58(GetContractAddress(Contract.CONFIG, networkType));
     const serviceContractAddress = ErgoAddress.fromBase58(GetContractAddress(Contract.SERVICE, networkType));
     const serviceContractHash = blake2b(hexToBytes(serviceContractAddress.ergoTree), { dkLen: BLAKE_256_HASH_LENGTH });
@@ -74,10 +66,10 @@ export function EditServiceConfig(networkType: Network,
                 .setAdditionalRegisters({
                     R4: SConstant(SSigmaProp(SGroupElement(first(serviceAddress.getPublicKeys())))),
                     R5: SConstant(SColl(SByte, serviceContractHash)),
-                    R6: SConstant(SLong(serviceFee)),
-                    R7: SConstant(SLong(serviceLength)),
-                    R8: SConstant(SColl(SByte, stringToBytes("utf8", name))),
-                    R9: SConstant(SColl(SByte, stringToBytes("utf8", description)))
+                    R6: SConstant(SLong(config.fee)),
+                    R7: SConstant(SLong(config.length)),
+                    R8: SConstant(SColl(SByte, stringToBytes("utf8", config.name))),
+                    R9: SConstant(SColl(SByte, stringToBytes("utf8", config.description)))
                 })
         ]);
     }
@@ -120,7 +112,7 @@ export function CreateSubscription(networkType: Network,
     subscribeBox: Box<Amount>,
     serviceConfigBox: Box<Amount>,
     subscriberAddress: ErgoAddress,
-    startDate: Date = new Date()): FleetPlugin {
+    startDate: Date): FleetPlugin {
     
     const serviceConfigNFT = serviceConfigBox.assets[0].tokenId;
     const subscribeAddress = ErgoAddress.fromBase58(GetContractAddress(Contract.SUBSCRIBE, networkType));
