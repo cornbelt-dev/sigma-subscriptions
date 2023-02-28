@@ -22,8 +22,8 @@ export enum LENGTH_IN_MILISECONDS {
     HOUR = '3600000',            
     DAY = '86400000',        
     WEEK = '604800000',
-    MONTH = '2629743000',
-    YEAR = '31556926000'
+    MONTH = '2592000000',
+    YEAR = '31536000000'
 }
 
 export const KNOWN_TOKENS = [
