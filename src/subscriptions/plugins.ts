@@ -12,7 +12,8 @@ import {
     SLong,
     SParse,
     SSigmaProp,
-    Network
+    Network,
+    TokensCollection
 } from "@fleet-sdk/core";
 import * as CONSTANTS from "./constants";
 import * as UTIL from "./util";
@@ -270,6 +271,31 @@ export function CollectSubscriptionFee(subscriptionBox: Box<Amount>,
         addInputs(subscriptionBox);
         addOutputs([
             new OutputBuilder(subscriptionBox.value, serviceAddress).addTokens(subscriptionBox.assets),
+            new OutputBuilder(devFee, devAddress)
+        ]);
+    };
+}
+
+export function CollectSubscriptionFeeBulk(subscriptionBoxes: Box<Amount>[],
+    serviceConfigBox: Box<Amount>,
+    devConfigBox: Box<Amount>): FleetPlugin {
+
+    const serviceAddress = ErgoAddress.fromPublicKey(serviceConfigBox.additionalRegisters.R4!.substring(4));
+
+    // dev fee
+    const devAddress = ErgoAddress.fromPublicKey(devConfigBox.additionalRegisters.R4!.substring(4));
+    const totalERG = BigInt(subscriptionBoxes.filter(b => b).reduce((sum, current) => sum + Number(current.value), 0));
+    const allTokens: TokensCollection = new TokensCollection();
+    subscriptionBoxes.forEach(box => {
+        allTokens.add(box.assets);
+    });
+    const devFee = _calculateDevFee(devConfigBox, totalERG);
+    
+    return ({ addDataInputs, addInputs, addOutputs }) => {
+        addDataInputs(serviceConfigBox, devConfigBox);
+        addInputs(subscriptionBoxes);
+        addOutputs([
+            new OutputBuilder(totalERG, serviceAddress).addTokens(allTokens),
             new OutputBuilder(devFee, devAddress)
         ]);
     };

@@ -3,9 +3,8 @@ import { AssetBalance, EIP12ErgoAPI, UnsignedTransaction } from "@nautilus-js/ei
 import * as SERVICES from "./services";
 import * as CONSTANTS from "./constants";
 import * as UTIL from "./util";
-import { CreateServiceConfig, EditServiceConfig, CreateService, CreateSubscription, RenewSubscription, CancelSubscription, CollectSubscriptionFee } from "./plugins";
+import { CreateServiceConfig, EditServiceConfig, CreateService, CreateSubscription, RenewSubscription, CancelSubscription, CollectSubscriptionFee, CollectSubscriptionFeeBulk } from "./plugins";
 import { SigmaSubscriptionsAuthResponse, Subscription, Service, ServiceConfig } from "./types";
-import { utimes } from "fs";
 
 export class SigmaSubscriptions {
     
@@ -210,6 +209,36 @@ export class SigmaSubscriptions {
                 const tx = new TransactionBuilder(currentHeight)
                     .from(inputs)
                     .extend(CollectSubscriptionFee(subscriptionBox, serviceConfig, devConfig))
+                    .sendChangeTo(serviceAddress)
+                    .payMinFee()
+                    .build("EIP-12");
+
+                return tx;
+            } else {     
+                throw new Error("Service Config Box for Subscription Box was not found.");
+            }
+        } else {     
+            throw new Error("Subscription Box not found.");
+        }   
+    }
+
+    public async collectBulk(ergo: EIP12ErgoAPI, subscribeBoxIds: string[]): Promise<UnsignedTransaction> {
+
+        const inputs = await ergo.get_utxos();
+        const currentHeight = await ergo.get_current_height();
+        const serviceAddress = ErgoAddress.fromBase58(await ergo.get_change_address());
+        const subscriptionBoxes: Box<Amount> [] = await SERVICES.getSubsciptionBoxesByBoxId(this.API_URL, subscribeBoxIds);
+
+        if (subscriptionBoxes) {  
+            const serviceConfigNFT = subscriptionBoxes[0].additionalRegisters.R4?.substring(4);
+            const serviceConfig: Box<Amount> | undefined = await SERVICES.getServiceConfig(this.API_URL, serviceConfigNFT!);
+            
+            if (serviceConfig) {  
+                const devConfig: Box<Amount> = await SERVICES.getDevConfigBox(this.NetworkType, this.API_URL);
+
+                const tx = new TransactionBuilder(currentHeight)
+                    .from(inputs)
+                    .extend(CollectSubscriptionFeeBulk(subscriptionBoxes, serviceConfig, devConfig))
                     .sendChangeTo(serviceAddress)
                     .payMinFee()
                     .build("EIP-12");

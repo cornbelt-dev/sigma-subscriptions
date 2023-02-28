@@ -98,6 +98,18 @@ export async function getSubsciptionBoxByBoxId(API_URL: string, boxId: string): 
     return subscriptionBox;
 }
 
+export async function getSubsciptionBoxesByBoxId(API_URL: string, boxIds: string[]): Promise<Box<Amount>[]> {
+    const subsciptionBoxes: Box<Amount>[] = [];
+    for (const boxId of boxIds) {
+        const subscriptionBox: Box<Amount> = await fetch(API_URL + 'boxes/' + boxId).then(resp => resp.json());
+        if (subscriptionBox) {
+            subscriptionBox.additionalRegisters = UTIL.parseAdditionalRegisters(subscriptionBox.additionalRegisters);
+            subsciptionBoxes.push(subscriptionBox);
+        }
+    }
+    return subsciptionBoxes;
+}
+
 export async function getWalletAddressBySubsciptionTokenId(networkType: Network, API_URL: string, subscriptionTokenId: string): Promise<string | undefined> {
     const boxes = await fetch(API_URL + 'boxes/unspent/byTokenId/' + subscriptionTokenId).then(resp => resp.json());
     let subscriptionBox: Box<Amount> = boxes.items.find((b: Box<Amount>) => ErgoAddress.fromErgoTree(b.ergoTree).type == AddressType.P2PK);   
