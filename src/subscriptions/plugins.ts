@@ -171,7 +171,7 @@ export function RenewSubscription(networkType: Network,
     inputs: Box<Amount>[],
     subscriptionBox: Box<Amount>,
     serviceConfigBox: Box<Amount>,
-    devConfigBox: Box<Amount>): FleetPlugin {
+    devConfigBox: Box<Amount> | undefined): FleetPlugin {
 
     const serviceConfigNFT = serviceConfigBox.assets[0].tokenId;
     const serviceContractAddress = ErgoAddress.fromBase58(GetContractAddress(Contract.SERVICE, networkType));
@@ -187,31 +187,31 @@ export function RenewSubscription(networkType: Network,
     // ensure subscription box is first input
     inputs.unshift(subscriptionBox);
 
-    // dev fee
-    const devAddress = ErgoAddress.fromPublicKey(devConfigBox.additionalRegisters.R4!.substring(4));
-    const devFee = _calculateDevFee(devConfigBox, subscriptionBox.value);
+    const outputs = [
+        new OutputBuilder(serviceFee.toString(), serviceContractAddress)
+            .addTokens(subscriptionBox.assets)
+            .setAdditionalRegisters({
+                R4: SConstant(SColl(SByte, serviceConfigNFT)),
+                R5: SConstant(SLong(newServiceStart)),
+                R6: SConstant(SLong(newServiceEnd))
+            }),
+        new OutputBuilder(subscriptionBox.value, serviceAddress)];
+    const devOutput: OutputBuilder | undefined = _getDevOutput(devConfigBox, subscriptionBox.value);
+    if (devOutput) {
+        outputs.push(devOutput);
+    }
 
     return ({ addDataInputs, addInputs, addOutputs }) => {
         addDataInputs(serviceConfigBox, devConfigBox);
         addInputs(inputs);
-        addOutputs([
-            new OutputBuilder(serviceFee.toString(), serviceContractAddress)
-                .addTokens(subscriptionBox.assets)
-                .setAdditionalRegisters({
-                    R4: SConstant(SColl(SByte, serviceConfigNFT)),
-                    R5: SConstant(SLong(newServiceStart)),
-                    R6: SConstant(SLong(newServiceEnd))
-                }),
-            new OutputBuilder(subscriptionBox.value, serviceAddress),
-            new OutputBuilder(devFee, devAddress)
-        ]);
+        addOutputs(outputs);
     };
 }
 
 export function CancelSubscription(subscriptionTokenBox: Box<Amount>,
     subscriptionBox: Box<Amount>,
     serviceConfigBox: Box<Amount>,
-    devConfigBox: Box<Amount>,
+    devConfigBox: Box<Amount> | undefined,
     subscriberAddress: ErgoAddress): FleetPlugin {
 
     const serviceAddress = ErgoAddress.fromPublicKey(serviceConfigBox.additionalRegisters.R4!.substring(4));
@@ -222,20 +222,28 @@ export function CancelSubscription(subscriptionTokenBox: Box<Amount>,
     const serviceStart = Number(SParse(subscriptionBox.additionalRegisters.R5!));
     const serviceEnd = Number(SParse(subscriptionBox.additionalRegisters.R6!));
 
-    if (currentTime < serviceStart) {
-        // full refund
-        outputs.push(new OutputBuilder(totalERG.toString(), subscriberAddress));
-    } else if (currentTime > serviceEnd) {
+     if (currentTime > serviceEnd) {
         // service has expired
         throw new Error("Service Has Expired");
-    } else {
-        const nextHour = currentTime - (currentTime % Number(CONSTANTS.LENGTH_IN_MILISECONDS.HOUR)) + Number(CONSTANTS.LENGTH_IN_MILISECONDS.HOUR);        
-        let refund = Math.floor(totalERG * ((serviceEnd - nextHour) / (serviceEnd - serviceStart)));
-        refund = refund - (refund % Number(SAFE_MIN_BOX_VALUE));
+    } else {       
+        let serviceTokens = subscriptionBox.assets;
+        let subscriptionToken: TokenAmount<Amount> | undefined = subscriptionTokenBox.assets.find(a => a.tokenId == serviceTokens[1].tokenId)
+        let refund = 0; 
+        let fee = Number(SAFE_MIN_BOX_VALUE);
+        
+        if (currentTime < serviceStart) {
+            // total refund
+            refund = totalERG;
+        } else {
+            // parital refund
+            const nextHour = currentTime - (currentTime % Number(CONSTANTS.LENGTH_IN_MILISECONDS.HOUR)) + Number(CONSTANTS.LENGTH_IN_MILISECONDS.HOUR);     
+            const refundPercent = Math.floor(((serviceEnd - nextHour) * 100) / (serviceEnd - serviceStart));
+            const exactRefund = Math.floor((totalERG * refundPercent) / 100);
+            refund = exactRefund - (exactRefund % Number(SAFE_MIN_BOX_VALUE));
+            fee = totalERG - refund;
+        }
         if (refund > 0) {
-            let serviceTokens = subscriptionBox.assets;
-            let subscriptionToken: TokenAmount<Amount> | undefined = subscriptionTokenBox.assets.find(a => a.tokenId == serviceTokens[1].tokenId)
-            outputs.push(new OutputBuilder((totalERG - refund).toString(), serviceAddress)
+            outputs.push(new OutputBuilder((fee).toString(), serviceAddress)
                 .addTokens(serviceTokens)
                 .addTokens(subscriptionToken!));
             outputs.push(new OutputBuilder((refund).toString(), subscriberAddress));
@@ -245,9 +253,10 @@ export function CancelSubscription(subscriptionTokenBox: Box<Amount>,
     }
 
     // dev fee
-    const devAddress = ErgoAddress.fromPublicKey(devConfigBox.additionalRegisters.R4!.substring(4));
-    const devFee = _calculateDevFee(devConfigBox, subscriptionBox.value);
-    outputs.push(new OutputBuilder(devFee, devAddress))
+    const devOutput: OutputBuilder | undefined = _getDevOutput(devConfigBox, subscriptionBox.value);
+    if (devOutput) {
+        outputs.push(devOutput);
+    }
 
     return ({ addDataInputs, addInputs, addOutputs }) => {
         addDataInputs(serviceConfigBox, devConfigBox);
@@ -258,63 +267,68 @@ export function CancelSubscription(subscriptionTokenBox: Box<Amount>,
 
 export function CollectSubscriptionFee(subscriptionBox: Box<Amount>,
     serviceConfigBox: Box<Amount>,
-    devConfigBox: Box<Amount>): FleetPlugin {
+    devConfigBox: Box<Amount> | undefined): FleetPlugin {
 
     const serviceAddress = ErgoAddress.fromPublicKey(serviceConfigBox.additionalRegisters.R4!.substring(4));
 
-    // dev fee
-    const devAddress = ErgoAddress.fromPublicKey(devConfigBox.additionalRegisters.R4!.substring(4));
-    const devFee = _calculateDevFee(devConfigBox, subscriptionBox.value);
+    const outputs = [new OutputBuilder(subscriptionBox.value, serviceAddress).addTokens(subscriptionBox.assets)]
+    const devOutput: OutputBuilder | undefined = _getDevOutput(devConfigBox, subscriptionBox.value);
+    if (devOutput) {
+        outputs.push(devOutput);
+    }
     
     return ({ addDataInputs, addInputs, addOutputs }) => {
         addDataInputs(serviceConfigBox, devConfigBox);
         addInputs(subscriptionBox);
-        addOutputs([
-            new OutputBuilder(subscriptionBox.value, serviceAddress).addTokens(subscriptionBox.assets),
-            new OutputBuilder(devFee, devAddress)
-        ]);
+        addOutputs(outputs);
     };
 }
 
 export function CollectSubscriptionFeeBulk(subscriptionBoxes: Box<Amount>[],
     serviceConfigBox: Box<Amount>,
-    devConfigBox: Box<Amount>): FleetPlugin {
+    devConfigBox: Box<Amount> | undefined): FleetPlugin {
 
     const serviceAddress = ErgoAddress.fromPublicKey(serviceConfigBox.additionalRegisters.R4!.substring(4));
 
     // dev fee
-    const devAddress = ErgoAddress.fromPublicKey(devConfigBox.additionalRegisters.R4!.substring(4));
     const totalERG = BigInt(subscriptionBoxes.filter(b => b).reduce((sum, current) => sum + Number(current.value), 0));
     const allTokens: TokensCollection = new TokensCollection();
     subscriptionBoxes.forEach(box => {
         allTokens.add(box.assets);
     });
-    const devFee = _calculateDevFee(devConfigBox, totalERG);
+
+    const outputs = [new OutputBuilder(totalERG, serviceAddress).addTokens(allTokens)]
+    const devOutput: OutputBuilder | undefined = _getDevOutput(devConfigBox, totalERG);
+    if (devOutput) {
+        outputs.push(devOutput);
+    }
     
     return ({ addDataInputs, addInputs, addOutputs }) => {
         addDataInputs(serviceConfigBox, devConfigBox);
         addInputs(subscriptionBoxes);
-        addOutputs([
-            new OutputBuilder(totalERG, serviceAddress).addTokens(allTokens),
-            new OutputBuilder(devFee, devAddress)
-        ]);
+        addOutputs(outputs);
     };
 }
 
-function _calculateDevFee(devConfigBox: Box<Amount>,
-    subscriptionFee: Amount) {
+function _getDevOutput(devConfigBox: Box<Amount> | undefined,
+    subscriptionFee: Amount) : OutputBuilder | undefined {
 
-    const feePercent = BigInt(SParse(devConfigBox.additionalRegisters.R5!)); // 1000 -> 1%
-    const minFee: string = SParse(devConfigBox.additionalRegisters.R6!);
-    const fixedFee: string = devConfigBox.additionalRegisters.R7 ? SParse(devConfigBox.additionalRegisters.R7) : '';
-
-    // fixed fee or calculate % fee 
-    let devFee = minFee;
-    if (fixedFee !== '') {
-        devFee = fixedFee;
-    } else {
-        devFee = ((feePercent / BigInt(10000)) * BigInt(subscriptionFee)).toString();
+    if (devConfigBox) {
+        const devAddress = ErgoAddress.fromPublicKey(devConfigBox.additionalRegisters.R4!.substring(4));
+        const feePercent = BigInt(SParse(devConfigBox.additionalRegisters.R5!)); // 1000 -> 1%
+        const minFee: string = SParse(devConfigBox.additionalRegisters.R6!);
+        const fixedFee: string = devConfigBox.additionalRegisters.R7 ? SParse(devConfigBox.additionalRegisters.R7) : '';
+    
+        // fixed fee or calculate % fee 
+        let devFee = minFee;
+        if (fixedFee !== '') {
+            devFee = fixedFee;
+        } else {
+            devFee = ((feePercent / BigInt(10000)) * BigInt(subscriptionFee)).toString();
+        }
+    
+        const fee = UTIL.ensureSafeValueString(devFee);
+        return new OutputBuilder(fee, devAddress)
     }
-
-    return UTIL.ensureSafeValueString(devFee);
+    return undefined;
 }

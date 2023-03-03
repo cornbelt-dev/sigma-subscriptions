@@ -23,6 +23,7 @@ export type Subscription = {
     boxId: string,
     walletAddress: string | undefined,
     tokenId: string | undefined,
+    fee: bigint,
     startDate: Date | undefined,
     endDate: Date | undefined,
     suggestRenewal: boolean,

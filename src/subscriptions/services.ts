@@ -121,10 +121,13 @@ export async function getWalletAddressBySubsciptionTokenId(networkType: Network,
 }
 
 // Dev
-export async function getDevConfigBox(newtorkType: Network, API_URL: string) {
+export async function getDevConfigBox(newtorkType: Network, API_URL: string): Promise<Box<Amount> | undefined> {
     const devNFT = newtorkType == Network.Mainnet ? CONSTANTS.DEV_NFT : CONSTANTS.TESTNET_DEV_NFT;
     const boxes = await fetch(API_URL + 'boxes/unspent/byTokenId/' + devNFT).then(resp => resp.json());
     const configBox = boxes.items.find((b: Box<Amount>) => ErgoAddress.fromErgoTree(b.ergoTree).type == AddressType.P2S);
-    configBox.additionalRegisters = UTIL.parseAdditionalRegisters(configBox.additionalRegisters);
-    return configBox;
+    if (configBox) {
+        configBox.additionalRegisters = UTIL.parseAdditionalRegisters(configBox.additionalRegisters);
+        return configBox;
+    }
+    return undefined;
 }

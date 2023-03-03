@@ -144,7 +144,7 @@ export class SigmaSubscriptions {
             const serviceConfig: Box<Amount> | undefined = await SERVICES.getServiceConfig(this.API_URL, serviceConfigNFT!);
             
             if (serviceConfig) {                   
-                const devConfig: Box<Amount> = await SERVICES.getDevConfigBox(this.NetworkType, this.API_URL);
+                const devConfig: Box<Amount> | undefined = await SERVICES.getDevConfigBox(this.NetworkType, this.API_URL);
                 const tx = new TransactionBuilder(currentHeight)
                     .extend(RenewSubscription(this.NetworkType, inputs, subscriptionBox, serviceConfig, devConfig))
                     .sendChangeTo(subscriberAddress)
@@ -172,18 +172,23 @@ export class SigmaSubscriptions {
             const serviceConfig: Box<Amount> | undefined = await SERVICES.getServiceConfig(this.API_URL, serviceConfigNFT!);
 
             if (serviceConfig) {  
-                const devConfig: Box<Amount> = await SERVICES.getDevConfigBox(this.NetworkType, this.API_URL);                    
-                const inputs = allInputs.filter(b => b.assets.find(a => a.tokenId != subscriptionTokenId));
+                const devConfig: Box<Amount> | undefined = await SERVICES.getDevConfigBox(this.NetworkType, this.API_URL);                  
                 const subscriptionTokenBox = allInputs.find(b => b.assets.find(a => a.tokenId == subscriptionTokenId));
+                if (subscriptionTokenBox) {
+                    
+                    const inputs = allInputs.filter(b => b.boxId != subscriptionTokenBox.boxId);
 
-                const tx = new TransactionBuilder(currentHeight)
-                    .from(inputs)
-                    .extend(CancelSubscription(subscriptionTokenBox!, subscriptionBox, serviceConfig, devConfig, subscriberAddress))
-                    .sendChangeTo(subscriberAddress)
-                    .payMinFee()
-                    .build("EIP-12");
+                    const tx = new TransactionBuilder(currentHeight)
+                        .from(inputs)
+                        .extend(CancelSubscription(subscriptionTokenBox!, subscriptionBox, serviceConfig, devConfig, subscriberAddress))
+                        .sendChangeTo(subscriberAddress)
+                        .payMinFee()
+                        .build("EIP-12");
 
-                return tx;
+                    return tx;
+                } else {     
+                    throw new Error("Subscription Box was not found in wallet.");
+                }
             } else {     
                 throw new Error("Service Config Box for Subscription Box was not found.");
             }
@@ -204,7 +209,7 @@ export class SigmaSubscriptions {
             const serviceConfig: Box<Amount> | undefined = await SERVICES.getServiceConfig(this.API_URL, serviceConfigNFT!);
             
             if (serviceConfig) {  
-                const devConfig: Box<Amount> = await SERVICES.getDevConfigBox(this.NetworkType, this.API_URL);
+                const devConfig: Box<Amount> | undefined = await SERVICES.getDevConfigBox(this.NetworkType, this.API_URL);
 
                 const tx = new TransactionBuilder(currentHeight)
                     .from(inputs)
@@ -234,7 +239,7 @@ export class SigmaSubscriptions {
             const serviceConfig: Box<Amount> | undefined = await SERVICES.getServiceConfig(this.API_URL, serviceConfigNFT!);
             
             if (serviceConfig) {  
-                const devConfig: Box<Amount> = await SERVICES.getDevConfigBox(this.NetworkType, this.API_URL);
+                const devConfig: Box<Amount> | undefined = await SERVICES.getDevConfigBox(this.NetworkType, this.API_URL);
 
                 const tx = new TransactionBuilder(currentHeight)
                     .from(inputs)
@@ -306,6 +311,27 @@ export class SigmaSubscriptions {
             }
         }
         return services;
+    }
+    
+    public async getServiceByTokenId(serviceTokenId: string): Promise<Service> {
+        
+        const subscribeBox: Box<Amount> | undefined = await SERVICES.getSubscribeBox(this.NetworkType, this.API_URL, serviceTokenId);
+
+        if (subscribeBox) {                   
+            const serviceConfigNFT = subscribeBox.additionalRegisters.R7?.substring(4);
+            const serviceConfig: Box<Amount> | undefined  = await SERVICES.getServiceConfig(this.API_URL, serviceConfigNFT!);
+
+            if (serviceConfig) {
+                return {
+                    config: UTIL.boxToConfig(serviceConfig, this.NetworkType),
+                    tokenId: serviceTokenId
+                }
+            } else {
+                throw new Error("Service Config Box for Subscribe Box was not found.");
+            }
+        } else {     
+            throw new Error("Subscribe Box not found.");
+        }
     }
     
     public async getSubscriptions(serviceTokenId: string): Promise<Subscription[]> {     

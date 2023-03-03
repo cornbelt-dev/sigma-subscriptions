@@ -99,7 +99,8 @@ export function boxToSubscription(box: Box<Amount>, walletAddress: string, subsc
     const subsciption: Subscription = { 
         boxId: box.boxId,
         walletAddress: walletAddress,
-        tokenId: subscriptionTokenId, 
+        tokenId: subscriptionTokenId,
+        fee: BigInt(box.value), 
         startDate: serviceStart ? new Date(serviceStart) : undefined, 
         endDate: serviceEnd ? new Date(serviceEnd) : undefined,        
         suggestRenewal: percentRemaining < 0.25,
